@@ -1,0 +1,14 @@
+Pipeline started at 2026-03-10 01:15:39.619063
+
+[2026-03-10 01:15:39.619424] Running: Clean Data
+       Province                 Station  ...  Year  Cases
+0  Eastern Cape  'King William''S Town'  ...  2005    871
+1  Eastern Cape  'King William''S Town'  ...  2006    830
+2  Eastern Cape  'King William''S Town'  ...  2007    871
+3  Eastern Cape  'King William''S Town'  ...  2008    845
+4  Eastern Cape  'King William''S Town'  ...  2009    771
+
+[5 rows x 5 columns]
+Saved clean_crime_data.csv
+
+[2026-03-10 01:15:47.453550] Running: Train Model

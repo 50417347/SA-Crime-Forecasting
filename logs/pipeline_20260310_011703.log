@@ -1,0 +1,67 @@
+Pipeline started at 2026-03-10 01:17:03.448016
+
+[2026-03-10 01:17:03.448665] Running: Clean Data
+       Province                 Station  ...  Year  Cases
+0  Eastern Cape  'King William''S Town'  ...  2005    871
+1  Eastern Cape  'King William''S Town'  ...  2006    830
+2  Eastern Cape  'King William''S Town'  ...  2007    871
+3  Eastern Cape  'King William''S Town'  ...  2008    845
+4  Eastern Cape  'King William''S Town'  ...  2009    771
+
+[5 rows x 5 columns]
+Saved clean_crime_data.csv
+
+[2026-03-10 01:17:08.200453] Running: Train Model
+Model saved to crime_model.pkl
+Encoders saved to crime_encoders.pkl
+Model data saved to crime_model_data.csv
+MAE: 13.33
+R2: 0.9539
+
+[2026-03-10 01:18:35.962372] Running: Generate Report
+
+=== Total Crime by Province ===
+Province
+Gauteng          6855654
+Western Cape     4792127
+Kwazulu/Natal    3808898
+Eastern Cape     2370079
+Free State       1397044
+Mpumalanga       1370933
+North West       1255258
+Limpopo          1201185
+Northern Cape     546262
+Name: Cases, dtype: int64
+
+=== Top 10 Crime Categories ===
+Category
+All theft not mentioned elsewhere                          4120351
+Burglary at residential premises                           2763950
+Assault with the intent to inflict grievous bodily harm    2179207
+Common assault                                             2043267
+Drug-related crime                                         1879871
+Theft out of or from motor vehicle                         1420789
+Malicious damage to property                               1397845
+Robbery with aggravating circumstances                     1284991
+Commercial crime                                            807206
+Shoplifting                                                 798079
+Name: Cases, dtype: int64
+
+=== Crime Trend by Year ===
+Year
+2005    2176557
+2006    2138717
+2007    2072449
+2008    2121884
+2009    2145388
+2010    2091348
+2011    2106560
+2012    2151032
+2013    2204000
+2014    2206506
+2015    2182999
+Name: Cases, dtype: int64
+
+Report files saved in outputs/
+
+Pipeline finished at 2026-03-10 01:18:39.702648
