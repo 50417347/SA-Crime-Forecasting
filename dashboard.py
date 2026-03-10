@@ -1,5 +1,6 @@
 import joblib
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 st.set_page_config(page_title="South African Crime Dashboard", layout="wide")
@@ -35,9 +36,9 @@ def predict_cases(model, encoders, df_model, province, station, category, year):
         return None, f"Unknown category: {category}"
 
     history = df_model[
-        (df_model["Province"] == province) &
-        (df_model["Station"] == station) &
-        (df_model["Category"] == category)
+        (df_model["Province"] == province)
+        & (df_model["Station"] == station)
+        & (df_model["Category"] == category)
     ].sort_values("Year")
 
     if len(history) < 2:
@@ -46,15 +47,19 @@ def predict_cases(model, encoders, df_model, province, station, category, year):
     last_row = history.iloc[-1]
     prev_row = history.iloc[-2]
 
-    input_df = pd.DataFrame([{
-        "Province_code": province_to_code[province],
-        "Station_code": station_to_code[station],
-        "Category_code": category_to_code[category],
-        "Year": year,
-        "lag_1": last_row["Cases"],
-        "lag_2": prev_row["Cases"],
-        "rolling_mean_2": (last_row["Cases"] + prev_row["Cases"]) / 2
-    }])
+    input_df = pd.DataFrame(
+        [
+            {
+                "Province_code": province_to_code[province],
+                "Station_code": station_to_code[station],
+                "Category_code": category_to_code[category],
+                "Year": year,
+                "lag_1": last_row["Cases"],
+                "lag_2": prev_row["Cases"],
+                "rolling_mean_2": (last_row["Cases"] + prev_row["Cases"]) / 2,
+            }
+        ]
+    )
 
     prediction = model.predict(input_df)[0]
     return int(round(prediction)), None
@@ -80,18 +85,75 @@ def get_risk_level(reference_df, category, predicted_cases):
         return "Very High", f"Prediction is in the upper range for {category}."
 
 
+def build_hotspot_map(map_df: pd.DataFrame):
+    province_cases = (
+        map_df.groupby("Province", as_index=False)["Cases"]
+        .sum()
+        .sort_values("Cases", ascending=False)
+    )
+
+    province_coords = {
+        "Western Cape": {"lat": -33.93, "lon": 18.42},
+        "Eastern Cape": {"lat": -32.30, "lon": 26.42},
+        "Northern Cape": {"lat": -28.74, "lon": 24.76},
+        "Free State": {"lat": -29.12, "lon": 26.21},
+        "KwaZulu-Natal": {"lat": -29.85, "lon": 31.02},
+        "Kwazulu/Natal": {"lat": -29.85, "lon": 31.02},
+        "North West": {"lat": -25.67, "lon": 27.24},
+        "Gauteng": {"lat": -26.20, "lon": 28.04},
+        "Mpumalanga": {"lat": -25.47, "lon": 30.98},
+        "Limpopo": {"lat": -23.90, "lon": 29.45},
+    }
+
+    province_cases["lat"] = province_cases["Province"].map(
+        lambda x: province_coords.get(x, {}).get("lat")
+    )
+    province_cases["lon"] = province_cases["Province"].map(
+        lambda x: province_coords.get(x, {}).get("lon")
+    )
+
+    province_cases = province_cases.dropna(subset=["lat", "lon"])
+
+    fig = px.scatter_geo(
+        province_cases,
+        lat="lat",
+        lon="lon",
+        size="Cases",
+        color="Cases",
+        hover_name="Province",
+        hover_data={"Cases": True, "lat": False, "lon": False},
+        title="Crime Hotspot Map by Province",
+        projection="natural earth",
+        size_max=45,
+    )
+
+    fig.update_geos(
+        scope="africa",
+        center={"lat": -29.0, "lon": 24.0},
+        projection_scale=6.5,
+        showcountries=True,
+        countrycolor="black",
+        showsubunits=True,
+        subunitcolor="gray",
+        showland=True,
+        landcolor="rgb(243,243,243)",
+    )
+
+    fig.update_layout(margin={"r": 20, "t": 50, "l": 20, "b": 20}, height=500)
+
+    return fig
+
+
+# Load data
 df = load_clean_data()
 model, encoders, model_data = load_model()
 
-st.title("South African Crime Analysis Dashboard")
-st.caption("Interactive analysis, hotspot detection, prediction, and risk scoring")
-
-# Sidebar filters
-st.sidebar.header("Filters")
+# Sidebar
+st.sidebar.title("Filters")
 
 province = st.sidebar.selectbox(
     "Province",
-    ["All"] + sorted(df["Province"].dropna().unique().tolist())
+    ["All"] + sorted(df["Province"].dropna().unique().tolist()),
 )
 
 if province == "All":
@@ -110,9 +172,21 @@ selected_year_range = st.sidebar.slider(
     "Year Range",
     min_value=year_min,
     max_value=year_max,
-    value=(year_min, year_max)
+    value=(year_min, year_max),
 )
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("About")
+st.sidebar.info(
+    "This dashboard analyzes South African crime statistics from 2005 to 2015, "
+    "shows trends and hotspots, and uses a machine learning model to forecast "
+    "future crime cases from historical patterns."
+)
+
+st.sidebar.markdown("---")
+st.sidebar.caption("Developed by Absolom Muzambi, PhD student at UNISA")
+
+# Filter data
 filtered_df = df.copy()
 
 if province != "All":
@@ -122,11 +196,16 @@ if category != "All":
     filtered_df = filtered_df[filtered_df["Category"] == category]
 
 filtered_df = filtered_df[
-    (filtered_df["Year"] >= selected_year_range[0]) &
-    (filtered_df["Year"] <= selected_year_range[1])
+    (filtered_df["Year"] >= selected_year_range[0])
+    & (filtered_df["Year"] <= selected_year_range[1])
 ]
 
-# KPIs
+# Title
+st.title("South African Crime Analysis Dashboard")
+st.caption("Interactive analysis, hotspot detection, prediction, and risk scoring")
+st.markdown("**Developed by Absolom Muzambi, PhD student at UNISA**")
+
+# KPI section
 total_cases = int(filtered_df["Cases"].sum()) if not filtered_df.empty else 0
 
 if not filtered_df.empty:
@@ -152,9 +231,9 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Cases", f"{total_cases:,}")
 col2.metric("Top Station", top_station)
 col3.metric("Top Category", top_category)
-col4.metric("Avg Cases / Year", f"{avg_cases_per_year:,}")
+col4.metric("Average Cases per Year", f"{avg_cases_per_year:,}")
 
-# Charts
+# Main charts
 left_col, right_col = st.columns(2)
 
 with left_col:
@@ -190,7 +269,15 @@ with right_col:
         else:
             st.info("No data available for the selected filters.")
 
-# Top categories and stations
+# Embedded hotspot map
+st.subheader("Crime Hotspot Map")
+if not filtered_df.empty:
+    hotspot_fig = build_hotspot_map(filtered_df)
+    st.plotly_chart(hotspot_fig, width="stretch")
+else:
+    st.info("No data available for the selected filters.")
+
+# Secondary charts
 col_a, col_b = st.columns(2)
 
 with col_a:
@@ -217,7 +304,7 @@ with col_b:
             .reset_index()
             .rename(columns={"Cases": "Total Cases"})
         )
-        st.dataframe(top_stations, use_container_width=True)
+        st.dataframe(top_stations, width="stretch")
     else:
         st.info("No station data available.")
 
@@ -230,7 +317,7 @@ with pred_col1:
     pred_province = st.selectbox(
         "Select Province for Prediction",
         sorted(df["Province"].dropna().unique().tolist()),
-        key="pred_province"
+        key="pred_province",
     )
 
     available_stations = sorted(
@@ -239,20 +326,20 @@ with pred_col1:
     pred_station = st.selectbox(
         "Select Station",
         available_stations,
-        key="pred_station"
+        key="pred_station",
     )
 
 with pred_col2:
     available_categories = sorted(
         df[
-            (df["Province"] == pred_province) &
-            (df["Station"] == pred_station)
+            (df["Province"] == pred_province)
+            & (df["Station"] == pred_station)
         ]["Category"].dropna().unique().tolist()
     )
     pred_category = st.selectbox(
         "Select Crime Category",
         available_categories,
-        key="pred_category"
+        key="pred_category",
     )
 
     pred_year = st.number_input(
@@ -260,13 +347,18 @@ with pred_col2:
         min_value=int(df["Year"].max()) + 1,
         max_value=2035,
         value=int(df["Year"].max()) + 1,
-        step=1
+        step=1,
     )
 
 if st.button("Predict Cases"):
     prediction, error = predict_cases(
-        model, encoders, model_data,
-        pred_province, pred_station, pred_category, pred_year
+        model,
+        encoders,
+        model_data,
+        pred_province,
+        pred_station,
+        pred_category,
+        pred_year,
     )
 
     if error:
@@ -281,14 +373,12 @@ if st.button("Predict Cases"):
 
         if risk_level == "Low":
             st.info(f"Risk Level: {risk_level} — {risk_message}")
-        elif risk_level == "Medium":
-            st.warning(f"Risk Level: {risk_level} — {risk_message}")
-        elif risk_level == "High":
+        elif risk_level in ["Medium", "High"]:
             st.warning(f"Risk Level: {risk_level} — {risk_message}")
         else:
             st.error(f"Risk Level: {risk_level} — {risk_message}")
 
-# Download filtered data
+# Download section
 st.subheader("Download Filtered Data")
 csv_data = filtered_df.to_csv(index=False).encode("utf-8")
 
@@ -296,9 +386,9 @@ st.download_button(
     label="Download filtered data as CSV",
     data=csv_data,
     file_name="filtered_crime_data.csv",
-    mime="text/csv"
+    mime="text/csv",
 )
 
 # Raw data preview
 st.subheader("Filtered Data Preview")
-st.dataframe(filtered_df, use_container_width=True)
+st.dataframe(filtered_df, width="stretch")
